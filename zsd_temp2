@@ -2,7 +2,7 @@
 *& REPORT zsd_temp2
 *&
 *&---------------------------------------------------------------------*
-*& Made By Shubhamkar Nalkar
+*& Made By Shubhamkar Nalkar 26 May 2023
 *&
 *&---------------------------------------------------------------------*
 
@@ -20,7 +20,7 @@ TYPES: t_celltype TYPE salv_t_int4_column,
        END   OF g_type_s_outtab.
 
 
-*... ง5 Definition is later
+*... ยง5 Definition is later
 CLASS lcl_handle_events DEFINITION DEFERRED.
 
 DATA: gt_outtab TYPE STANDARD TABLE OF g_type_s_outtab.
@@ -29,7 +29,7 @@ DATA: gr_table   TYPE REF TO cl_salv_table.
 
 DATA: gr_container TYPE REF TO cl_gui_custom_container.
 
-*... ง5 object for handling the events of cl_salv_table
+*... ยง5 object for handling the events of cl_salv_table
 DATA: gr_events TYPE REF TO lcl_handle_events.
 
 DATA: g_okcode TYPE syucomm.
@@ -37,7 +37,7 @@ DATA: g_okcode TYPE syucomm.
 *---------------------------------------------------------------------*
 *       CLASS lcl_handle_events DEFINITION
 *---------------------------------------------------------------------*
-* ง5.1 define a local class for handling events of cl_salv_table
+* ยง5.1 define a local class for handling events of cl_salv_table
 *---------------------------------------------------------------------*
 CLASS lcl_handle_events DEFINITION.
   PUBLIC SECTION.
@@ -53,7 +53,7 @@ ENDCLASS.                    "lcl_handle_events DEFINITION
 *---------------------------------------------------------------------*
 *       CLASS lcl_handle_events IMPLEMENTATION
 *---------------------------------------------------------------------*
-* ง5.2 implement the events for handling the events of cl_salv_table
+* ยง5.2 implement the events for handling the events of cl_salv_table
 *---------------------------------------------------------------------*
 CLASS lcl_handle_events IMPLEMENTATION.
   METHOD on_user_command.
@@ -94,7 +94,7 @@ end-of-selection.
 *&---------------------------------------------------------------------*
 *&      Form  select_data
 *&---------------------------------------------------------------------*
-* ง1 select data into your global output table
+* ยง1 select data into your global output table
 *----------------------------------------------------------------------*
 FORM select_data.
 
@@ -114,8 +114,8 @@ ENDFORM.                    " select_data
 *----------------------------------------------------------------------*
 FORM display_fullscreen .
 
-*... ง2 create an ALV table
-*    ง2.2 just create an instance and do not set LIST_DISPLAY for
+*... ยง2 create an ALV table
+*    ยง2.2 just create an instance and do not set LIST_DISPLAY for
 *         displaying the data as a Fullscreen Grid
   TRY.
       cl_salv_table=>factory(
@@ -126,9 +126,9 @@ FORM display_fullscreen .
     CATCH cx_salv_msg.                                  "#EC NO_HANDLER
   ENDTRY.
 
-*... ง3 Functions
-*... ง3.1 activate ALV generic Functions
-*... ง3.2 include own functions by setting own status
+*... ยง3 Functions
+*... ยง3.1 activate ALV generic Functions
+*... ยง3.2 include own functions by setting own status
   gr_table->set_screen_status(
     pfstatus      =  'ZGUI_STATUS'"""costum GUI status to handle the user action
     report        =  'ZSD_TEMP2'
@@ -143,7 +143,7 @@ FORM display_fullscreen .
 
   PERFORM set_columns_technical USING lr_columns.
 
-*... ง4 set hotspot column
+*... ยง4 set hotspot column
   TRY.
       lr_column ?= lr_columns->get_column( 'ICON' ).
       lr_column->set_cell_type( if_salv_c_cell_type=>hotspot ).
@@ -151,20 +151,20 @@ FORM display_fullscreen .
     CATCH cx_salv_not_found.                            "#EC NO_HANDLER
   ENDTRY.
 
-*... ง6 register to the events of cl_salv_table
+*... ยง6 register to the events of cl_salv_table
   DATA: lr_events TYPE REF TO cl_salv_events_table.
 
   lr_events = gr_table->get_event( ).
 
   CREATE OBJECT gr_events.
 
-*... ง6.1 register to the event USER_COMMAND
+*... ยง6.1 register to the event USER_COMMAND
   SET HANDLER gr_events->on_user_command FOR lr_events.
-*... ง6.2 register to the event DOUBLE_CLICK
+*... ยง6.2 register to the event DOUBLE_CLICK
   SET HANDLER gr_events->on_double_click FOR lr_events.
 
 
-*... ง7 selections
+*... ยง7 selections
   DATA: lr_selections TYPE REF TO cl_salv_selections,
         lt_rows       TYPE salv_t_row,
         lt_column     TYPE salv_t_column,
@@ -172,16 +172,16 @@ FORM display_fullscreen .
 
   lr_selections = gr_table->get_selections( ).
 
-*... ง7.1 set selection mode
+*... ยง7.1 set selection mode
   lr_selections->set_selection_mode( if_salv_c_selection_mode=>cell ).
 
   lr_selections->set_selected_columns( lt_column ).
 
-*... ง7.3 set selected rows.
+*... ยง7.3 set selected rows.
 
   lr_selections->set_selected_rows( lt_rows ).
 
-*... ง8 display the table
+*... ยง8 display the table
   gr_table->display( ).
 
 ENDFORM.                    " display_fullscreen
