@@ -1,0 +1,336 @@
+*&---------------------------------------------------------------------*
+*& REPORT zsd_temp2
+*&
+*&---------------------------------------------------------------------*
+*& Made By Shubhamkar Nalkar
+*&
+*&---------------------------------------------------------------------*
+
+REPORT zsd_temp2.
+
+
+TABLES: vbrk.
+TYPE-POOLS: col, icon, sym.
+
+TYPES: BEGIN OF g_type_s_outtab.
+TYPES:  icon   TYPE icon_d.
+        INCLUDE TYPE vbrk.
+TYPES: status TYPE string.
+TYPES: t_celltype TYPE salv_t_int4_column,
+       END   OF g_type_s_outtab.
+
+
+*... §5 Definition is later
+CLASS lcl_handle_events DEFINITION DEFERRED.
+
+DATA: gt_outtab TYPE STANDARD TABLE OF g_type_s_outtab.
+
+DATA: gr_table   TYPE REF TO cl_salv_table.
+
+DATA: gr_container TYPE REF TO cl_gui_custom_container.
+
+*... §5 object for handling the events of cl_salv_table
+DATA: gr_events TYPE REF TO lcl_handle_events.
+
+DATA: g_okcode TYPE syucomm.
+
+*---------------------------------------------------------------------*
+*       CLASS lcl_handle_events DEFINITION
+*---------------------------------------------------------------------*
+* §5.1 define a local class for handling events of cl_salv_table
+*---------------------------------------------------------------------*
+CLASS lcl_handle_events DEFINITION.
+  PUBLIC SECTION.
+    METHODS:
+      on_user_command FOR EVENT added_function OF cl_salv_events
+        IMPORTING e_salv_function,
+
+      on_double_click FOR EVENT double_click OF cl_salv_events_table
+        IMPORTING row column.
+
+ENDCLASS.                    "lcl_handle_events DEFINITION
+
+*---------------------------------------------------------------------*
+*       CLASS lcl_handle_events IMPLEMENTATION
+*---------------------------------------------------------------------*
+* §5.2 implement the events for handling the events of cl_salv_table
+*---------------------------------------------------------------------*
+CLASS lcl_handle_events IMPLEMENTATION.
+  METHOD on_user_command.
+    PERFORM handle_user_command USING e_salv_function.
+  ENDMETHOD.                    "on_user_command
+
+  METHOD on_double_click.
+    PERFORM show_cell_info USING 0 row column TEXT-i07.
+  ENDMETHOD.                    "on_double_click
+
+ENDCLASS.                    "lcl_handle_events IMPLEMENTATION
+
+*----------------------------------------------------------------------*
+* SELECTION-SCREEN                                                     *
+*----------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK gen WITH FRAME.
+  SELECT-OPTIONS: s_vbeln FOR vbrk-vbeln.
+SELECTION-SCREEN END OF BLOCK gen.
+
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN.                                                 *
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN.
+  PERFORM select_data.
+
+  IF gt_outtab IS INITIAL.
+    MESSAGE 'No data for Display' TYPE 'E'.
+  ENDIF.
+
+*----------------------------------------------------------------------*
+* END-OF-SELECTION                                                     *
+*----------------------------------------------------------------------*
+end-of-selection.
+  PERFORM display_fullscreen.
+
+
+*&---------------------------------------------------------------------*
+*&      Form  select_data
+*&---------------------------------------------------------------------*
+* §1 select data into your global output table
+*----------------------------------------------------------------------*
+FORM select_data.
+
+  FIELD-SYMBOLS: <ls_outtab> TYPE g_type_s_outtab.
+
+  SELECT * FROM vbrk
+    INTO CORRESPONDING FIELDS OF TABLE gt_outtab
+    WHERE vbeln IN s_vbeln.
+                                                            "#EC *
+  PERFORM status_icon_change.
+ENDFORM.                    " select_data
+
+*&---------------------------------------------------------------------*
+*&      Form  display_fullscreen
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM display_fullscreen .
+
+*... §2 create an ALV table
+*    §2.2 just create an instance and do not set LIST_DISPLAY for
+*         displaying the data as a Fullscreen Grid
+  TRY.
+      cl_salv_table=>factory(
+        IMPORTING
+          r_salv_table = gr_table
+        CHANGING
+          t_table      = gt_outtab ).
+    CATCH cx_salv_msg.                                  "#EC NO_HANDLER
+  ENDTRY.
+
+*... §3 Functions
+*... §3.1 activate ALV generic Functions
+*... §3.2 include own functions by setting own status
+  gr_table->set_screen_status(
+    pfstatus      =  'ZGUI_STATUS'"""costum GUI status to handle the user action
+    report        =  'ZSD_TEMP2'
+    set_functions = gr_table->c_functions_all ).
+
+*... set the columns technical
+  DATA: lr_columns TYPE REF TO cl_salv_columns_table,
+        lr_column  TYPE REF TO cl_salv_column_table.
+
+  lr_columns = gr_table->get_columns( ).
+  lr_columns->set_optimize( abap_true ).
+
+  PERFORM set_columns_technical USING lr_columns.
+
+*... §4 set hotspot column
+  TRY.
+      lr_column ?= lr_columns->get_column( 'ICON' ).
+      lr_column->set_cell_type( if_salv_c_cell_type=>hotspot ).
+      lr_column->set_icon( if_salv_c_bool_sap=>true ).
+    CATCH cx_salv_not_found.                            "#EC NO_HANDLER
+  ENDTRY.
+
+*... §6 register to the events of cl_salv_table
+  DATA: lr_events TYPE REF TO cl_salv_events_table.
+
+  lr_events = gr_table->get_event( ).
+
+  CREATE OBJECT gr_events.
+
+*... §6.1 register to the event USER_COMMAND
+  SET HANDLER gr_events->on_user_command FOR lr_events.
+*... §6.2 register to the event DOUBLE_CLICK
+  SET HANDLER gr_events->on_double_click FOR lr_events.
+
+
+*... §7 selections
+  DATA: lr_selections TYPE REF TO cl_salv_selections,
+        lt_rows       TYPE salv_t_row,
+        lt_column     TYPE salv_t_column,
+        ls_cell       TYPE salv_s_cell.
+
+  lr_selections = gr_table->get_selections( ).
+
+*... §7.1 set selection mode
+  lr_selections->set_selection_mode( if_salv_c_selection_mode=>cell ).
+
+  lr_selections->set_selected_columns( lt_column ).
+
+*... §7.3 set selected rows.
+
+  lr_selections->set_selected_rows( lt_rows ).
+
+*... §8 display the table
+  gr_table->display( ).
+
+ENDFORM.                    " display_fullscreen
+
+
+*&---------------------------------------------------------------------*
+*&      Form  set_columns_technical
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM set_columns_technical USING ir_columns TYPE REF TO cl_salv_columns_table.
+
+  DATA: lr_column TYPE REF TO cl_salv_column.
+
+  TRY.
+      lr_column = ir_columns->get_column( 'MANDT' ).
+      lr_column->set_technical( if_salv_c_bool_sap=>true ).
+    CATCH cx_salv_not_found.                            "#EC NO_HANDLER
+  ENDTRY.
+
+ENDFORM.                    " set_columns_technical(
+
+*&---------------------------------------------------------------------*
+*&      Form  handle_user_command
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM handle_user_command USING i_ucomm TYPE salv_de_function.
+*****here you handle all the user actions
+*** In this case you might want to add the button in the GUI status
+  CASE i_ucomm.
+    WHEN 'API'.
+      PERFORM API.
+  ENDCASE.
+
+ENDFORM.                    " handle_user_command
+*&---------------------------------------------------------------------*
+*& Form API
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+FORM api.
+
+  DATA: lr_selections TYPE REF TO cl_salv_selections.
+
+  DATA: lt_rows TYPE salv_t_row,
+        lt_cols TYPE salv_t_column,
+        ls_cell TYPE salv_s_cell.
+
+  DATA: l_row        TYPE i,
+        l_col        TYPE lvc_fname,
+        l_row_string TYPE char128,
+        l_col_string TYPE char128,
+        l_row_info   TYPE char128,
+        l_col_info   TYPE char128.
+
+
+
+  "----------------------
+*  data: lo_outtab type REF TO data.
+  lr_selections = gr_table->get_selections( ).
+  lt_rows = lr_selections->get_selected_rows( ).
+  lt_cols = lr_selections->get_selected_columns( ).
+  ls_cell = lr_selections->get_current_cell( ).
+
+*... Zeile
+
+
+  DATA(lo_selections) = gr_table->get_selections( ).
+  DATA(lt_selected_row_indices) = lo_selections->get_selected_rows( ).
+
+  IF lines( lt_selected_row_indices ) NE 1.
+    "Select one row for this function
+    RETURN.
+  ENDIF.
+
+  LOOP AT lt_selected_row_indices INTO DATA(lv_selected_row_index).
+    READ TABLE gt_outtab REFERENCE INTO DATA(lo_outtab) INDEX lv_selected_row_index.
+    IF sy-subrc eq 0.
+***********DO an Api call here
+    ENDIF.
+  ENDLOOP.
+
+********* optimize the columns
+  DATA: lr_columns TYPE REF TO cl_salv_columns_table,
+        lr_column  TYPE REF TO cl_salv_column_table.
+
+  lr_columns = gr_table->get_columns( ).
+  lr_columns->set_optimize( abap_true ).
+*****refreshing the ALV
+  gr_table->refresh(
+*    EXPORTING
+*      s_stable     =                         " ALV Control: Refresh Stability
+*      refresh_mode = if_salv_c_refresh=>soft " ALV: Data Element for Constants
+  ).
+ENDFORM.
+
+
+
+*&---------------------------------------------------------------------*
+*&      Form  show_cell_info
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM show_cell_info USING i_level  TYPE i
+                          i_row    TYPE i
+                          i_column TYPE lvc_fname
+                          i_text   TYPE string.
+  FIELD-SYMBOLS: <cell> TYPE any.
+  READ TABLE gt_outtab INTO DATA(out) INDEX i_row.
+  IF sy-subrc EQ 0.
+    ASSIGN COMPONENT i_column OF STRUCTURE out TO <cell>.
+    IF <cell> IS ASSIGNED.
+      CASE i_column.
+        WHEN 'VBELN'.
+          IF <cell> IS ASSIGNED AND <cell> IS NOT INITIAL.
+            SET PARAMETER ID 'VBELN' FIELD <cell>.
+            CALL TRANSACTION 'VF03'.
+          ENDIF.
+        WHEN OTHERS.
+          IF <cell> IS ASSIGNED AND <cell> IS NOT INITIAL.
+*            MESSAGE <cell> TYPE 'I'.
+            cl_demo_output=>display_text( <cell> ).
+          ENDIF.
+      ENDCASE.
+    ENDIF."IF <cell> IS ASSIGNED
+  ENDIF."gt table read
+
+
+ENDFORM.                    " show_cell_info
+
+*&---------------------------------------------------------------------*
+*& Form status_icon_change
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM status_icon_change .
+  LOOP AT gt_outtab REFERENCE INTO DATA(lo_icon).
+    CASE lo_icon->status.
+*      WHEN 'CUSTOM'.
+*        lo_icon->icon =  icon_failure.
+      WHEN OTHERS.
+*        lo_icon->icon =  icon_yellow_light.
+        lo_icon->icon =  icon_led_yellow.
+    ENDCASE.
+  ENDLOOP.
+
+ENDFORM.
